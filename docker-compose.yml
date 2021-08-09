@@ -1,0 +1,68 @@
+version: '3'
+services:
+  mysql:
+    image: mariadb:10.5.9
+    command: --max_allowed_packet=512M
+    networks:
+      - onmy
+    volumes:
+      - "./data/db:/var/lib/mysql:delegated"
+    ports:
+       - "3306:3306"
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+    restart: always
+  litespeed:
+    image: litespeedtech/openlitespeed:${OLS_VERSION}-${PHP_VERSION}
+    networks:
+      - onmy
+    env_file:
+      - .env
+    volumes:
+        - ./lsws/conf:/usr/local/lsws/conf
+        - ./lsws/admin-conf:/usr/local/lsws/admin/conf
+        - ./bin/container:/usr/local/bin
+        - ./sites:/var/www/vhosts/
+        - ./logs:/usr/local/lsws/logs/
+    restart: always
+    environment:
+      TZ: ${TimeZone}
+  npm:
+    image: 'jc21/nginx-proxy-manager:latest'
+    networks:
+      - onmy
+    restart: unless-stopped
+    ports:
+      - '80:80'
+      - '81:81'
+      - '443:443'
+    environment:
+      DB_MYSQL_HOST: "mysql"
+      DB_MYSQL_PORT: 3306
+      DB_MYSQL_USER: "npm"
+      DB_MYSQL_PASSWORD: "npm"
+      DB_MYSQL_NAME: "npm"
+    volumes:
+      - ./npm-data:/data
+      - ./npm-lse:/etc/letsencrypt
+  phpmyadmin:
+    image: bitnami/phpmyadmin:5.0.2-debian-10-r72
+    networks:
+      - onmy
+    environment:
+        DATABASE_HOST: mysql
+    restart: always
+  yacht:
+    image: selfhostedpro/yacht
+    networks: 
+        - onmy
+    volumes:
+        - /var/run/docker.sock:/var/run/docker.sock
+        - ./yacht:/config
+    restart: always
+networks:
+  onmy:
+    driver: bridge
